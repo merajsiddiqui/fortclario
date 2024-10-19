@@ -1,0 +1,9 @@
+{
+    "extends": "./tsconfig.json", // Extend from the main config
+    "compilerOptions": {
+        "outDir": "./dist/test", // Separate output directory for tests, if needed
+        "rootDir": "./tests" // Point to the tests directory
+    },
+    "include": ["tests/**/*.ts"], // Include all TypeScript files in the tests directory
+    "exclude": ["node_modules"] // Exclude node_modules
+}

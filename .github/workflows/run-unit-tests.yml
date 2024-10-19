@@ -1,0 +1,25 @@
+name: Run Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Setup Environment
+      uses: ./.github/workflows/setup-environment.yml
+
+    - name: Run Unit Tests
+      run: yarn test
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: test-results
+      if: always()
