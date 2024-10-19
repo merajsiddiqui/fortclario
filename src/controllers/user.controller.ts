@@ -1,4 +1,4 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyReply } from 'fastify';
 import { Controller } from "../decorators/controller.decorator";
 import { Get, Post, Put, Delete } from "../decorators/route.decorator";
 import { Middleware } from '../decorators/middleware.decorator';
@@ -6,7 +6,7 @@ import { UserResponseContract } from '../contracts/reply/user-resonse.contract';
 import { UserCreateRequestContract } from '../contracts/request/user-create.contract';
 import UserService from '../services/user.service';
 import { authenticate } from '../middlewares/auth.middleware';
-import { Inject, Injectable } from '../decorators/injectable.decorator';
+import {Injectable } from '../decorators/injectable.decorator';
 import  { Body, Param } from '../decorators/request.decorator';
 import { GetUserDetailRequestContract } from '../contracts/request/user-id.contract';
 /**
@@ -15,13 +15,11 @@ import { GetUserDetailRequestContract } from '../contracts/request/user-id.contr
 @Injectable()
 @Controller('/users')
 export class UserController {
-
     /**
      * 
      * @param userService 
      */
     constructor( private userService: UserService) {}
-
     /**
      * Retrieves all users.
      * @param {FastifyRequest} req - The request object.
@@ -33,7 +31,6 @@ export class UserController {
     async getUsers( reply: FastifyReply): Promise<UserResponseContract[]> {
         return this.userService.getAllUsers()
     }
-
     /**
      * Retrieves a specific user by ID.
      * @param {FastifyRequest} req - The request object.
@@ -49,7 +46,6 @@ export class UserController {
         }
         return user;
     }
-
     /**
      * Creates a new user.
      * @param {FastifyRequest} req - The request object.

@@ -92,81 +92,127 @@ export function Patch(path: string, swaggerMetaData?: ApiSwaggerData) {
  */
 export function registerRoutes(app: FastifyInstance) {
     const controllers = getControllers(); // Get all controllers
-
     controllers.forEach(({ controller, path }) => {
         const routes: RouteMetadata[] = Reflect.getMetadata(ROUTE_METADATA_KEY, controller) || [];
         const controllerMiddlewares = getMiddlewares(controller);
-        
-        routes.forEach(({ method, path: routePath, handler, swagger }) => {
-            const fullPath = `${path}${routePath}`;
-            const routeMiddlewares = getMiddlewares(controller, handler.name);
-            // Ensure method is a valid Fastify method
-            const fastifyMethod = method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch';
-            const middlewares = [...controllerMiddlewares, ...routeMiddlewares];
+        routes.forEach((route) => registerRoute(app, controller, path, route, controllerMiddlewares));
+    });
+}
 
-            const routeSchema = {
-                // Adding prehandler to execute middlewares sequentially
-                preHandler: async (request: FastifyRequest, reply: FastifyReply) => {
-                    for (const middleware of middlewares) {
-                        await new Promise<void>((resolve, reject) => {
-                            middleware(request, reply, (err?: Error) => {
-                                if (err) reject(err);
-                                else resolve();
-                            });
-                        });
-                    }
-                },
-                // Main route handler
-                handler: async (req: FastifyRequest, reply: FastifyReply) => {
-                    // Get controller instance from DI container
-                    const controllerInstance = DependencyInjectionContainer.get(controller);
-                    if (!controllerInstance) {
-                        throw new Error(`Failed to create instance of controller: ${controller}`);
-                    }
+/**
+ * Registers a single route for a controller
+ * @param app - The Fastify instance
+ * @param controller - The controller class
+ * @param controllerPath - The base path for the controller
+ * @param route - The route metadata
+ * @param controllerMiddlewares - Middlewares for the controller
+ */
+function registerRoute(app: FastifyInstance, controller: any, controllerPath: string, route: RouteMetadata, controllerMiddlewares: any[]) {
+    const { method, path: routePath, handler, swagger } = route;
+    const fullPath = `${controllerPath}${routePath}`;
+    const routeMiddlewares = getMiddlewares(controller, handler.name);
+    const fastifyMethod = method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch';
+    const middlewares = [...controllerMiddlewares, ...routeMiddlewares];
 
-                    const params: any = [req]; // Start with request
+    const routeSchema = {
+        preHandler: createPreHandler(middlewares),
+        handler: createRouteHandler(controller, handler, middlewares)
+    };
 
-                    // Define metadata types for body, params, and query
-                    const metadataTypes = [
-                        { key: MetadataKeys.BODY_METADATA_KEY, value: req.body },
-                        { key: MetadataKeys.PARAM_METADATA_KEY, value: req.params },
-                        { key: MetadataKeys.QUERY_METADATA_KEY, value: req.query }
-                    ];
+    // Register the route with Fastify
+    app[fastifyMethod](fullPath, routeSchema);
 
-                    // Validate and add parameters based on metadata
-                    for (const { key, value } of metadataTypes) {
-                        const contract = Reflect.getMetadata(key, controller, handler.name);
-                        console.log(contract, 'contract');
-                        if (contract) {
-                            // Validate contract and return if validation fails
-                            if (!await validateContract(value, contract, reply)) {
-                                return; // Validation failed, response sent already
-                            }
-                            params.push(value);
-                        }
-                    }
+    // Register Swagger schema if metadata is provided
+    if (swagger) {
+        registerSwaggerSchema(app, method, fullPath, routeSchema, swagger);
+    }
+}
 
-                    params.push(reply);
-                    // Call the handler with the relevant parameters
-                    return handler.apply(controllerInstance, params);
-                }
-            }
-            // Register the route with Fastify
-            app[fastifyMethod](fullPath, routeSchema);
-
-            // Register Swagger schema if metadata is provided
-            if (swagger) {
-                app.route({
-                    method,
-                    url: fullPath,
-                    ...routeSchema,
-                    schema: {
-                        summary: swagger.summary,
-                        description: swagger.description,
-                        tags: swagger.tags,
-                    },
+/**
+ * Creates a preHandler function to execute middlewares sequentially
+ * @param middlewares - Array of middleware functions
+ */
+function createPreHandler(middlewares: any[]) {
+    return async (request: FastifyRequest, reply: FastifyReply) => {
+        for (const middleware of middlewares) {
+            await new Promise<void>((resolve, reject) => {
+                middleware(request, reply, (err?: Error) => {
+                    if (err) reject(err);
+                    else resolve();
                 });
+            });
+        }
+    };
+}
+
+/**
+ * Creates the main route handler function
+ * @param controller - The controller class
+ * @param handler - The route handler method
+ * @param middlewares - Array of middleware functions
+ */
+function createRouteHandler(controller: any, handler: Function, middlewares: any[]) {
+    return async (req: FastifyRequest, reply: FastifyReply) => {
+        const controllerInstance = DependencyInjectionContainer.get(controller);
+        if (!controllerInstance) {
+            throw new Error(`Failed to create instance of controller: ${controller}`);
+        }
+        const params = await buildHandlerParams(req, reply, controller, handler);
+        return handler.apply(controllerInstance, params);
+    };
+}
+
+/**
+ * Builds the parameters for the route handler
+ * @param req - The Fastify request object
+ * @param reply - The Fastify reply object
+ * @param controller - The controller class
+ * @param handler - The route handler method
+ */
+async function buildHandlerParams(req: FastifyRequest, reply: FastifyReply, controller: any, handler: Function) {
+    const params: any = [req];
+    const metadataTypes = [
+        { key: MetadataKeys.BODY_METADATA_KEY, value: req.body },
+        { key: MetadataKeys.PARAM_METADATA_KEY, value: req.params },
+        { key: MetadataKeys.QUERY_METADATA_KEY, value: req.query }
+    ];
+
+    for (const { key, value } of metadataTypes) {
+        const paramTypes = Reflect.getMetadata('design:paramtypes', controller.prototype);
+        const paramIndexes = Reflect.getMetadata(key, controller, handler.name);
+        
+        for (const index of paramIndexes) {
+            const paramType = paramTypes[index];
+            if (paramType) {
+                if (!await validateContract(value, paramType, reply)) {
+                    return; // Validation failed, response sent already
+                }
+                params.push(value);
             }
-        });
+        }
+    }
+
+    params.push(reply);
+    return params;
+}
+
+/**
+ * Registers Swagger schema for a route
+ * @param app - The Fastify instance
+ * @param method - The HTTP method
+ * @param fullPath - The full path of the route
+ * @param routeSchema - The route schema
+ * @param swagger - The Swagger metadata
+ */
+function registerSwaggerSchema(app: FastifyInstance, method: string, fullPath: string, routeSchema: any, swagger: ApiSwaggerData) {
+    app.route({
+        method,
+        url: fullPath,
+        ...routeSchema,
+        schema: {
+            summary: swagger.summary,
+            description: swagger.description,
+            tags: swagger.tags,
+        },
     });
 }
