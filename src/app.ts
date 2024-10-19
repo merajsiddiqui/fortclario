@@ -4,7 +4,7 @@ import { readdirSync } from 'fs';
 import Fastify, {FastifyInstance, FastifyError, FastifyReply, FastifyRequest} from 'fastify';
 import { rollbarInstance } from './utils/rollbar';
 import { OpenAPIV3Option, SwaggerUiConfig } from './swagger';
-import { MikroORM } from '@mikro-orm/core';
+import { EntityManager, MikroORM } from '@mikro-orm/core';
 import mikroOrmConfig from './config/mikro-orm.config';
 import logger from './utils/logger';
 import { registerRoutes } from './decorators/route.decorator';
@@ -51,6 +51,7 @@ export class App {
     public async initializeDatabase(): Promise<void> {
         try {
             this.orm = await MikroORM.init(mikroOrmConfig);
+            DependencyInjectionContainer.register(EntityManager, this.orm.em.fork());
             console.log('Database connection established');
         } catch (error) {
             console.error('Failed to connect to the database:', error);
@@ -90,8 +91,6 @@ export class App {
     private async loadAllControllers(): Promise<void> {
         const controllersDir = join(__dirname, 'controllers');
         const files = readdirSync(controllersDir);
-    
-        const loadedControllers = new Set<string>(); // To track loaded controllers
     
         for (const file of files) {
             if (file.endsWith('.ts') || file.endsWith('.js')) {

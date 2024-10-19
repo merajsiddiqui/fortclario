@@ -7,7 +7,8 @@ import { UserCreateRequestContract } from '../contracts/request/user-create.cont
 import UserService from '../services/user.service';
 import { authenticate } from '../middlewares/auth.middleware';
 import { Inject, Injectable } from '../decorators/injectable.decorator';
-
+import  { Body, Param } from '../decorators/request.decorator';
+import { GetUserDetailRequestContract } from '../contracts/request/user-id.contract';
 /**
  * Controller for handling user-related operations.
  */
@@ -19,9 +20,7 @@ export class UserController {
      * 
      * @param userService 
      */
-    constructor(@Inject(UserService) private userService: UserService) {
-        console.log('UserController initialized with userService:', userService)
-    }
+    constructor( private userService: UserService) {}
 
     /**
      * Retrieves all users.
@@ -31,7 +30,7 @@ export class UserController {
      */
     @Middleware(authenticate)
     @Get('/')
-    async getUsers(req: FastifyRequest, reply: FastifyReply): Promise<UserResponseContract[]> {
+    async getUsers( reply: FastifyReply): Promise<UserResponseContract[]> {
         return this.userService.getAllUsers()
     }
 
@@ -42,9 +41,8 @@ export class UserController {
      * @returns {Promise<UserResponseContract | null>} A promise that resolves to a user response contract or null if not found.
      */
     @Get('/:id')
-    async getUser(req: FastifyRequest, reply: FastifyReply): Promise<UserResponseContract | null> {
-        const { id } = req.params as { id: string };
-        const user = await this.userService.getUserById(parseInt(id));
+    async getUser( @Param() userRequest: GetUserDetailRequestContract, reply: FastifyReply): Promise<UserResponseContract | null> {
+        const user = await this.userService.getUserById(userRequest.id);
         if (!user) {
             reply.code(404); // Set HTTP status code to 404 Not Found
             return null;
@@ -59,43 +57,10 @@ export class UserController {
      * @returns {Promise<UserResponseContract>} A promise that resolves to the created user response contract.
      */
     @Post('/')
-    async createUser(req: FastifyRequest, reply: FastifyReply): Promise<UserResponseContract> {
-        const userData = req.body as UserCreateRequestContract;
-        return this.userService.createUser(userData);
+    async createUser(@Body() userData: UserCreateRequestContract, reply: FastifyReply): Promise<UserResponseContract> {
+        const createdUser = await this.userService.createUser(userData);
+        reply.code(201); // Set HTTP status code to 201 Created
+        return createdUser;
     }
 
-    /**
-     * Updates an existing user.
-     * @param {FastifyRequest} req - The request object.
-     * @param {FastifyReply} reply - The reply object.
-     * @returns {Promise<UserResponseContract | null>} A promise that resolves to the updated user response contract or null if not found.
-     */
-    @Put('/:id')
-    async updateUser(req: FastifyRequest, reply: FastifyReply): Promise<UserResponseContract | null> {
-        const { id } = req.params as { id: string };
-        const userData = req.body as Partial<UserCreateRequestContract>;
-        const updatedUser = await this.userService.updateUser(parseInt(id), userData);
-        if (!updatedUser) {
-            reply.code(404); // Set HTTP status code to 404 Not Found
-            return null;
-        }
-        return updatedUser;
-    }
-
-    /**
-     * Deletes a user.
-     * @param {FastifyRequest} req - The request object.
-     * @param {FastifyReply} reply - The reply object.
-     * @returns {Promise<void>} A promise that resolves when the delete operation is complete.
-     */
-    @Delete('/:id')
-    async deleteUser(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-        const { id } = req.params as { id: string };
-        const deleted = await this.userService.deleteUser(parseInt(id));
-        if (!deleted) {
-            reply.code(404); // Set HTTP status code to 404 Not Found
-        } else {
-            reply.code(204); // Set HTTP status code to 204 No Content
-        }
-    }
 }

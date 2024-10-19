@@ -1,17 +1,19 @@
+import { Options } from '@mikro-orm/core';
 import { TsMorphMetadataProvider } from '@mikro-orm/reflection';
 import { EntityCaseNamingStrategy } from '@mikro-orm/core';
+import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const config = {
-  entities: ['../entities'], // Path to the directory containing your entities
-  entitiesTs: ['../entities'], // Path for TypeScript entities (if using TypeScript)
+const config: Options = {
+  entities: ['dist/entities'], // Path to the compiled JS entities
+  entitiesTs: ['src/entities'], // Path for TypeScript entities
   dbName: process.env.DB_NAME || 'your_database_name',
-  type: 'postgresql', // or 'mysql', 'postgresql', etc.
   user: process.env.DB_USER || 'your_db_user',
   password: process.env.DB_PASSWORD || 'your_db_password',
-  debug: process.env.NODE_ENV !== 'production',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  debug: process.env.APP_ENVIRONMENT !== 'production',
   metadataProvider: TsMorphMetadataProvider,
   namingStrategy: EntityCaseNamingStrategy,
   discovery: {
@@ -19,6 +21,7 @@ const config = {
     requireEntitiesArray: false,
     alwaysAnalyseProperties: true,
   },
+  driver: PostgreSqlDriver,
 };
 
 export default config;

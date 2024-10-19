@@ -1,18 +1,27 @@
-import { EntityRepository } from '@mikro-orm/core';
+import { EntityRepository, EntityManager } from '@mikro-orm/core';
 import { User } from '../entities/user.entity';
 import { UserCreateRequestContract } from '../contracts/request/user-create.contract';
+import { DependencyInjectionContainer } from '../decorators/injectable.decorator';
 
 /**
  * Repository class for managing User entities.
  */
-export class UserRepository extends EntityRepository<User> {
+export class UserRepository {
+
+  private readonly repository: EntityRepository<User>;
+  private readonly em: EntityManager;
+
+  constructor() {
+    this.em = DependencyInjectionContainer.get(EntityManager);
+    this.repository = this.em.getRepository(User);
+  }
 
   /**
    * Retrieves all users from the database.
    * @returns {Promise<User[]>} A promise that resolves to an array of User entities.
    */
   async findAllUsers(): Promise<User[]> {
-    return this.findAll();
+    return this.repository.findAll();
   }
 
   /**
@@ -21,7 +30,7 @@ export class UserRepository extends EntityRepository<User> {
    * @returns {Promise<User | null>} A promise that resolves to the User entity if found, or null if not found.
    */
   async findUserById(id: number): Promise<User | null> {
-    return this.findOne({ id });
+    return this.repository.findOne({ id });
   }
 
   /**
@@ -31,7 +40,7 @@ export class UserRepository extends EntityRepository<User> {
    */
   async createUser(userData: UserCreateRequestContract): Promise<User> {
     // Create a new user entity with the provided data and current timestamp
-    const user = this.create({
+    const user = this.repository.create({
       ...userData,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -48,10 +57,10 @@ export class UserRepository extends EntityRepository<User> {
    * @returns {Promise<User | null>} A promise that resolves to the updated User entity if found, or null if not found.
    */
   async updateUser(id: number, userData: Partial<UserCreateRequestContract>): Promise<User | null> {
-    const user = await this.findOne({ id });
+    const user = await this.repository.findOne({ id });
     if (!user) return null;
     // Assign the new data to the existing user entity
-    this.assign(user, userData);
+    this.repository.assign(user, userData);
     // Flush changes to the database
     await this.em.flush();
     return user;
@@ -63,7 +72,7 @@ export class UserRepository extends EntityRepository<User> {
    * @returns {Promise<boolean>} A promise that resolves to true if the user was deleted, false if the user was not found.
    */
   async deleteUser(id: number): Promise<boolean> {
-    const user = await this.findOne({ id });
+    const user = await this.repository.findOne({ id });
     if (!user) return false;
     // Remove the user from the database
     await this.em.removeAndFlush(user);

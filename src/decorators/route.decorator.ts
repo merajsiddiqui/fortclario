@@ -4,10 +4,15 @@ import { FastifyInstance, FastifyReply, FastifyRequest, HTTPMethods } from 'fast
 import { getControllers } from './controller.decorator';
 import { ApiSwaggerData } from '../interfaces/swagger.interface';
 import { getMiddlewares } from './middleware.decorator';
+import { MetadataKeys } from './request.decorator';
 import { DependencyInjectionContainer } from './injectable.decorator';
+import { validateContract } from '../validators';
 
 // Symbol to store route metadata
 const ROUTE_METADATA_KEY = Symbol('routes');
+
+
+type HandlerFn<Params extends any[] = any[]> = (...args: [FastifyRequest, ...Params ,FastifyReply]) => Promise<any> | void;
 
 /**
  * Interface representing the metadata for a route
@@ -15,8 +20,8 @@ const ROUTE_METADATA_KEY = Symbol('routes');
 interface RouteMetadata {
     method: HTTPMethods;
     path: string;
-    handler: (req: FastifyRequest, reply: FastifyReply) => Promise<any> | void;
-    swagger?: ApiSwaggerData
+    handler: HandlerFn;
+    swagger?: ApiSwaggerData;
 }
 
 /**
@@ -80,7 +85,10 @@ export function Patch(path: string, swaggerMetaData?: ApiSwaggerData) {
 
 /**
  * Registers all routes defined in controllers to the Fastify instance
- * @param app - The Fastify instance
+ * This function iterates through all controllers, their routes, and middlewares,
+ * and sets up the appropriate Fastify routes with proper request handling and validation.
+ * 
+ * @param app - The Fastify instance to register routes on
  */
 export function registerRoutes(app: FastifyInstance) {
     const controllers = getControllers(); // Get all controllers
@@ -88,13 +96,16 @@ export function registerRoutes(app: FastifyInstance) {
     controllers.forEach(({ controller, path }) => {
         const routes: RouteMetadata[] = Reflect.getMetadata(ROUTE_METADATA_KEY, controller) || [];
         const controllerMiddlewares = getMiddlewares(controller);
+        
         routes.forEach(({ method, path: routePath, handler, swagger }) => {
             const fullPath = `${path}${routePath}`;
             const routeMiddlewares = getMiddlewares(controller, handler.name);
             // Ensure method is a valid Fastify method
             const fastifyMethod = method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch';
             const middlewares = [...controllerMiddlewares, ...routeMiddlewares];
-            const routSchema = {
+
+            const routeSchema = {
+                // Adding prehandler to execute middlewares sequentially
                 preHandler: async (request: FastifyRequest, reply: FastifyReply) => {
                     for (const middleware of middlewares) {
                         await new Promise<void>((resolve, reject) => {
@@ -105,22 +116,50 @@ export function registerRoutes(app: FastifyInstance) {
                         });
                     }
                 },
+                // Main route handler
                 handler: async (req: FastifyRequest, reply: FastifyReply) => {
-                    // Bind the handler to the controller instance
-                    const controllerInstance = DependencyInjectionContainer.get(controller); // Get the controller instance
-                    return handler.bind(controllerInstance)(req, reply); // Bind the handler to the instance
+                    // Get controller instance from DI container
+                    const controllerInstance = DependencyInjectionContainer.get(controller);
+                    if (!controllerInstance) {
+                        throw new Error(`Failed to create instance of controller: ${controller}`);
+                    }
+
+                    const params: any = [req]; // Start with request
+
+                    // Define metadata types for body, params, and query
+                    const metadataTypes = [
+                        { key: MetadataKeys.BODY_METADATA_KEY, value: req.body },
+                        { key: MetadataKeys.PARAM_METADATA_KEY, value: req.params },
+                        { key: MetadataKeys.QUERY_METADATA_KEY, value: req.query }
+                    ];
+
+                    // Validate and add parameters based on metadata
+                    for (const { key, value } of metadataTypes) {
+                        const contract = Reflect.getMetadata(key, controller, handler.name);
+                        console.log(contract, 'contract');
+                        if (contract) {
+                            // Validate contract and return if validation fails
+                            if (!await validateContract(value, contract, reply)) {
+                                return; // Validation failed, response sent already
+                            }
+                            params.push(value);
+                        }
+                    }
+
+                    params.push(reply);
+                    // Call the handler with the relevant parameters
+                    return handler.apply(controllerInstance, params);
                 }
             }
-            
             // Register the route with Fastify
-            app[fastifyMethod](fullPath, routSchema);
+            app[fastifyMethod](fullPath, routeSchema);
 
-            // If Swagger metadata is provided, register the route with Swagger schema
+            // Register Swagger schema if metadata is provided
             if (swagger) {
                 app.route({
                     method,
                     url: fullPath,
-                    ...routSchema,
+                    ...routeSchema,
                     schema: {
                         summary: swagger.summary,
                         description: swagger.description,

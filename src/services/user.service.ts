@@ -1,4 +1,4 @@
-import { Injectable } from '../decorators/injectable.decorator';
+import { Inject, Injectable } from '../decorators/injectable.decorator';
 import { UserRepository } from '../repositories/user.repository';
 import { User } from '../entities/user.entity';
 import { UserCreateRequestContract } from '../contracts/request/user-create.contract';

@@ -22,6 +22,7 @@ process.on('unhandledRejection', (reason, promise) => {
  */
 const startServer = async () => {
     try {
+        await application.initializeDatabase();
         await application.enableRoutes();
         const listenOptions: FastifyListenOptions = {
             port: parseInt(PORT),
