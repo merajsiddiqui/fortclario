@@ -4,17 +4,24 @@ import { Get, Post, Put, Delete } from "../decorators/route.decorator";
 import { Middleware } from '../decorators/middleware.decorator';
 import { UserResponseContract } from '../contracts/reply/user-resonse.contract';
 import { UserCreateRequestContract } from '../contracts/request/user-create.contract';
-import { UserService } from '../services/user.service';
+import UserService from '../services/user.service';
 import { authenticate } from '../middlewares/auth.middleware';
-import { Inject } from '../decorators/injectable.decorator';
+import { Inject, Injectable } from '../decorators/injectable.decorator';
 
 /**
  * Controller for handling user-related operations.
  */
+@Injectable()
 @Controller('/users')
-export default class UserController {
+export class UserController {
 
-    constructor(private userService: UserService) {}
+    /**
+     * 
+     * @param userService 
+     */
+    constructor(@Inject(UserService) private userService: UserService) {
+        console.log('UserController initialized with userService:', userService)
+    }
 
     /**
      * Retrieves all users.
@@ -22,11 +29,10 @@ export default class UserController {
      * @param {FastifyReply} reply - The reply object.
      * @returns {Promise<UserResponseContract[]>} A promise that resolves to an array of user response contracts.
      */
-    @Get('/')
     @Middleware(authenticate)
+    @Get('/')
     async getUsers(req: FastifyRequest, reply: FastifyReply): Promise<UserResponseContract[]> {
-        console.log(this.userService)
-        return this.userService.getAllUsers();
+        return this.userService.getAllUsers()
     }
 
     /**

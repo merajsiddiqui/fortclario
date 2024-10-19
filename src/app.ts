@@ -8,7 +8,8 @@ import { MikroORM } from '@mikro-orm/core';
 import mikroOrmConfig from './config/mikro-orm.config';
 import logger from './utils/logger';
 import { registerRoutes } from './decorators/route.decorator';
-import { container } from './decorators/injectable.decorator';
+import { DependencyInjectionContainer } from './decorators/injectable.decorator';
+
 
 /**
  * @package App
@@ -90,22 +91,18 @@ export class App {
         const controllersDir = join(__dirname, 'controllers');
         const files = readdirSync(controllersDir);
     
+        const loadedControllers = new Set<string>(); // To track loaded controllers
+    
         for (const file of files) {
             if (file.endsWith('.ts') || file.endsWith('.js')) {
                 const controllerPath = join(controllersDir, file);
                 try {
-                    // Dynamically import the controller module
-                    const importedModule = await import(controllerPath);
-                    
-                    // Get the controller class (assuming it's the default export)
-                    const ControllerClass = importedModule.default;
-    
-                    if (ControllerClass) {
-                        // Instantiate the controller class
-                        const controllerInstance = new ControllerClass();
-                        // Optionally register it with the DI container
-                        container.register(ControllerClass.name, controllerInstance);
-                        console.log(`Loaded controller from ${controllerPath}`);
+                    // Use dynamic import
+                    const { default: ControllerClass } = await import(controllerPath);
+                    // Check and register the controller
+                    if (typeof ControllerClass === 'function') {
+                        DependencyInjectionContainer.register(ControllerClass); // This will handle duplicates
+                        logger.info(`Loading ${controllerPath}`);
                     }
                 } catch (error) {
                     console.error(`Error loading controller from ${controllerPath}:`, error);

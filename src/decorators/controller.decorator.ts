@@ -16,9 +16,9 @@ export function Controller(prefix: string) {
         Reflect.defineMetadata(CONTROLLER_METADATA_KEY, prefix, target);
 
         // Add the controller to the global controller list
-        const controllers = Reflect.getMetadata(CONTROLLER_METADATA_KEY, Reflect) || [];
+        const controllers = Reflect.getMetadata(CONTROLLER_METADATA_KEY, globalThis) || [];
         controllers.push(target);
-        Reflect.defineMetadata(CONTROLLER_METADATA_KEY, controllers, Reflect);
+        Reflect.defineMetadata(CONTROLLER_METADATA_KEY, controllers, globalThis);
     };
 }
 
@@ -28,7 +28,7 @@ export function Controller(prefix: string) {
  */
 export function getControllers(): { controller: any; path: string }[] {
     const controllers: { controller: any; path: string }[] = [];
-    const allControllers = Reflect.getMetadata(CONTROLLER_METADATA_KEY, Reflect) || [];
+    const allControllers = Reflect.getMetadata(CONTROLLER_METADATA_KEY, globalThis) || [];
 
     // Iterate through all registered controllers
     for (const controller of allControllers) {

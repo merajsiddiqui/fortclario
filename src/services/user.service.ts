@@ -5,7 +5,7 @@ import { UserCreateRequestContract } from '../contracts/request/user-create.cont
 import { UserResponseContract } from '../contracts/reply/user-resonse.contract';
 
 @Injectable()
-export class UserService {
+export default class UserService {
 
     constructor(private readonly userRepository: UserRepository) {}
 

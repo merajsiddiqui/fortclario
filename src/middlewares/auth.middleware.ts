@@ -1,5 +1,4 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { UserRepository } from '../repositories/user.repository';
 
 interface AuthenticatedRequest extends FastifyRequest {
     user?: any;
@@ -10,7 +9,7 @@ export async function authenticate(request: AuthenticatedRequest, reply: Fastify
     try {
         const userId = request.headers['x-user-id'];
         const orgId = request.headers['x-org-id'];
-
+        console.log("Calling middleware")
         if (!userId || !orgId) {
             reply.status(401).send({ error: 'Missing user or organization information' });
             return;
