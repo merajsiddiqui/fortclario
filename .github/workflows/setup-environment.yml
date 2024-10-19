@@ -1,43 +1,43 @@
-name: Setup Environment
+# name: Setup Environment
 
-on:
-  workflow_call:
+# on:
+#   workflow_call:
 
-jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+# jobs:
+#   setup:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 'lts/*'  # Use the latest LTS version of Node.js
-          cache: 'yarn'
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: 'lts/*'  # Use the latest LTS version of Node.js
+#           cache: 'yarn'
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+#       - name: Install dependencies
+#         run: yarn install --frozen-lockfile
 
-      - name: Setup PostgreSQL
-        uses: actions/setup-postgres@v1
-        with:
-          postgresql-version: '14'  # Adjust this to your required PostgreSQL version
+#       - name: Setup PostgreSQL
+#         uses: actions/setup-postgres@v1
+#         with:
+#           postgresql-version: '14'  # Adjust this to your required PostgreSQL version
 
-      - name: Create PostgreSQL database
-        run: |
-          sudo -u postgres psql -c "CREATE DATABASE billing_service_db;"
-          sudo -u postgres psql -c "CREATE USER billing_user WITH PASSWORD 'your_password';"
-          sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE billing_service_db TO billing_user;"
+#       - name: Create PostgreSQL database
+#         run: |
+#           sudo -u postgres psql -c "CREATE DATABASE billing_service_db;"
+#           sudo -u postgres psql -c "CREATE USER billing_user WITH PASSWORD 'your_password';"
+#           sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE billing_service_db TO billing_user;"
 
-      - name: Cache setup
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.yarn
-            ~/.cache/yarn
-            ~/.cache/pip
-            ~/.cache/postgresql
-          key: ${{ runner.os }}-setup-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-setup-
+#       - name: Cache setup
+#         uses: actions/cache@v3
+#         with:
+#           path: |
+#             ~/.yarn
+#             ~/.cache/yarn
+#             ~/.cache/pip
+#             ~/.cache/postgresql
+#           key: ${{ runner.os }}-setup-${{ hashFiles('**/yarn.lock') }}
+#           restore-keys: |
+#             ${{ runner.os }}-setup-
